@@ -1,0 +1,96 @@
+# ============================================
+#  Python
+# ============================================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# 仮想環境
+venv/
+env/
+.venv/
+
+# Pipenv / Poetry
+Pipfile.lock
+poetry.lock
+
+# Unit test / coverage
+htmlcov/
+.tox/
+.coverage
+coverage.*
+.pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# ============================================
+#  アプリ用データ / 設定ファイル（秘匿）
+# ============================================
+# ユーザーごとのローカル設定
+*.db
+*.sqlite3
+*.sqlite
+instance/
+config.local.yml
+settings.local.json
+
+# キャッシュや一時ファイル
+cache/
+tmp/
+temp/
+*.log
+
+# ============================================
+#  Node / TypeScript / Web (Vite, React)
+# ============================================
+node_modules/
+dist/
+build/
+
+# Vite cache
+.vite/
+
+# TypeScript build files
+*.tsbuildinfo
+
+# ============================================
+#  エディタ・IDE
+# ============================================
+# VSCode
+.vscode/
+# JetBrains
+.idea/
+
+# ============================================
+#  OSゴミファイル
+# ============================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# ============================================
+#  その他
+# ============================================
+# バックアップ・一時
+*.bak
+*.tmp
+*.orig
+*.swp
+*.swo
+
+# Python packaging
+build/
+dist/
+*.egg-info/
