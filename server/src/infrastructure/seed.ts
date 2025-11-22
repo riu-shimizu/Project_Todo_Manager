@@ -30,15 +30,19 @@ export function seedDemoData() {
 
   phases.forEach((phase, phaseIndex) => {
     const phaseId = nanoid(12);
+    const phaseActualStart = phase.status === 'DONE' || phase.status === 'IN_PROGRESS' ? phase.start : null;
+    const phaseActualEnd = phase.status === 'DONE' ? phase.end : null;
     db.prepare(`
-      INSERT INTO phases (id, projectId, title, plannedStart, plannedEnd, orderIndex, createdAt, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO phases (id, projectId, title, plannedStart, plannedEnd, actualStart, actualEnd, memo, orderIndex, createdAt, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)
     `).run(
       phaseId,
       projectId,
       phase.title,
       phase.start,
       phase.end,
+      phaseActualStart,
+      phaseActualEnd,
       phaseIndex,
       now,
       phase.status
@@ -56,9 +60,11 @@ export function seedDemoData() {
 
     works.forEach((work, workIndex) => {
       const workId = nanoid(12);
+      const workActualStart = work.status === 'DONE' || work.status === 'IN_PROGRESS' ? work.start : null;
+      const workActualEnd = work.status === 'DONE' ? work.end : null;
       db.prepare(`
-        INSERT INTO works (id, projectId, phaseId, title, plannedStart, plannedEnd, orderIndex, createdAt, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO works (id, projectId, phaseId, title, plannedStart, plannedEnd, actualStart, actualEnd, memo, orderIndex, createdAt, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)
       `).run(
         workId,
         projectId,
@@ -66,6 +72,8 @@ export function seedDemoData() {
         work.title,
         work.start,
         work.end,
+        workActualStart,
+        workActualEnd,
         workIndex,
         now,
         work.status
@@ -78,9 +86,11 @@ export function seedDemoData() {
 
       tasks.forEach((task, taskIndex) => {
         const taskId = nanoid(12);
+        const taskActualStart = task.status === 'DONE' || task.status === 'IN_PROGRESS' ? task.start : null;
+        const taskActualEnd = task.status === 'DONE' ? task.end : null;
         db.prepare(`
-          INSERT INTO tasks (id, projectId, workId, title, plannedStart, plannedEnd, orderIndex, createdAt, status)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO tasks (id, projectId, workId, title, plannedStart, plannedEnd, actualStart, actualEnd, memo, orderIndex, createdAt, status)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)
         `).run(
           taskId,
           projectId,
@@ -88,6 +98,8 @@ export function seedDemoData() {
           task.title,
           task.start,
           task.end,
+          taskActualStart,
+          taskActualEnd,
           taskIndex,
           now,
           task.status

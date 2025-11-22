@@ -1,11 +1,15 @@
-import { useMemo, useRef, useEffect } from 'react';
+import { useMemo, useRef, useEffect, type MutableRefObject } from 'react';
 import type { PhaseNode, TodoStatus } from '../types';
+import { deriveStatusFromActual } from '../utils/status';
 
 interface GanttChartProps {
   phases: PhaseNode[];
   showWorksByPhase?: Record<string, boolean>;
   showTasksByWork?: Record<string, boolean>;
   showTodosByTask?: Record<string, boolean>;
+  itemRects?: Record<string, { top: number; height: number }>;
+  ganttOffset?: number;
+  rowsRef?: MutableRefObject<HTMLDivElement | null>;
 }
 
 type GanttRow = {
@@ -48,6 +52,7 @@ function buildRows(
     const plannedEnd = parseDate(phase.plannedEnd);
     const actualStart = parseDate(phase.actualStart);
     const actualEnd = parseDate(phase.actualEnd);
+    const status = deriveStatusFromActual(phase.actualStart, phase.actualEnd);
 
     rows.push({
       id: phase.id,
@@ -56,7 +61,7 @@ function buildRows(
       plannedEnd: plannedEnd ? Math.max(plannedStart ?? 0, plannedEnd) : null,
       actualStart,
       actualEnd: actualEnd ? Math.max(actualStart ?? 0, actualEnd) : null,
-      status: phase.status,
+      status,
       level: 0,
     });
 
@@ -67,6 +72,7 @@ function buildRows(
       const plannedEnd = parseDate(work.plannedEnd);
       const actualStart = parseDate(work.actualStart);
       const actualEnd = parseDate(work.actualEnd);
+      const status = deriveStatusFromActual(work.actualStart, work.actualEnd);
 
       rows.push({
         id: work.id,
@@ -75,7 +81,7 @@ function buildRows(
         plannedEnd: plannedEnd ? Math.max(plannedStart ?? 0, plannedEnd) : null,
         actualStart,
         actualEnd: actualEnd ? Math.max(actualStart ?? 0, actualEnd) : null,
-        status: work.status,
+        status,
         level: 1,
       });
 
@@ -86,6 +92,7 @@ function buildRows(
         const plannedEnd = parseDate(task.plannedEnd);
         const actualStart = parseDate(task.actualStart);
         const actualEnd = parseDate(task.actualEnd);
+        const status = deriveStatusFromActual(task.actualStart, task.actualEnd);
 
         rows.push({
           id: task.id,
@@ -94,7 +101,7 @@ function buildRows(
           plannedEnd: plannedEnd ? Math.max(plannedStart ?? 0, plannedEnd) : null,
           actualStart,
           actualEnd: actualEnd ? Math.max(actualStart ?? 0, actualEnd) : null,
-          status: task.status,
+          status,
           level: 2,
         });
       });
@@ -109,6 +116,9 @@ export function GanttChart({
   showWorksByPhase = {},
   showTasksByWork = {},
   showTodosByTask = {},
+  itemRects = {},
+  ganttOffset = 0,
+  rowsRef,
 }: GanttChartProps) {
   const rows = useMemo(
     () => {
@@ -143,7 +153,9 @@ export function GanttChart({
     return items;
   }, [phases, showWorksByPhase, showTasksByWork, showTodosByTask]);
 
+  const bodyRef = rowsRef ?? useRef<HTMLDivElement>(null);
   // Calculate timeline bounds
+  const now = Date.now();
   const { minStart, maxEnd, totalDays } = useMemo(() => {
     if (rows.length === 0) return { minStart: Date.now(), maxEnd: Date.now(), totalDays: 1 };
 
@@ -152,7 +164,11 @@ export function GanttChart({
 
     rows.forEach(row => {
       if (row.plannedStart) min = Math.min(min, row.plannedStart);
-      if (row.actualStart) min = Math.min(min, row.actualStart);
+      if (row.actualStart) {
+        min = Math.min(min, row.actualStart);
+        const actualEnd = row.actualEnd ?? now;
+        max = Math.max(max, actualEnd);
+      }
       if (row.plannedEnd) max = Math.max(max, row.plannedEnd);
       if (row.actualEnd) max = Math.max(max, row.actualEnd);
     });
@@ -185,7 +201,7 @@ export function GanttChart({
       maxEnd: endTs,
       totalDays: Math.ceil((endTs - startTs) / DAY_MS) + 1,
     };
-  }, [rows, todoMarkers]);
+  }, [rows, todoMarkers, now]);
 
   const timelineWidth = totalDays * DAY_WIDTH;
 
@@ -220,6 +236,25 @@ export function GanttChart({
     return { months, days };
   }, [minStart, totalDays]);
 
+  const positionedRows = useMemo(() => {
+    return rows.map((row, index) => {
+      const rect = itemRects[row.id];
+      const top = rect ? rect.top + ganttOffset : index * 48;
+      const height = rect?.height ?? 48;
+      return { ...row, top, height };
+    });
+  }, [rows, itemRects, ganttOffset]);
+
+  const rowMap = useMemo(() => {
+    const map = new Map<string, { top: number; height: number }>();
+    positionedRows.forEach((row) => {
+      map.set(row.id, { top: row.top, height: row.height });
+    });
+    return map;
+  }, [positionedRows]);
+
+  const totalHeight = positionedRows.reduce((max, row) => Math.max(max, row.top + row.height), 0);
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Scroll to today on mount
@@ -242,7 +277,7 @@ export function GanttChart({
     );
   }
 
-  const today = Date.now();
+  const today = now;
   const todayLeft = ((today - minStart) / DAY_MS) * DAY_WIDTH;
 
   return (
@@ -268,11 +303,18 @@ export function GanttChart({
         {/* Sidebar */}
         <div className="gantt-sidebar">
           <div className="gantt-sidebar-header">タスク名</div>
-          {rows.map((row) => (
-            <div key={row.id} className={`gantt-sidebar-row level-${row.level}`} title={row.label}>
-              {row.label}
-            </div>
-          ))}
+          <div className="gantt-sidebar-body" style={{ height: totalHeight }}>
+            {positionedRows.map((row) => (
+              <div
+                key={row.id}
+                className={`gantt-sidebar-row level-${row.level}`}
+                title={row.label}
+                style={{ top: row.top, height: row.height }}
+              >
+                {row.label}
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Scrollable Timeline */}
@@ -301,7 +343,7 @@ export function GanttChart({
             </div>
 
             {/* Body */}
-            <div className="gantt-body">
+            <div className="gantt-body" ref={bodyRef} style={{ height: totalHeight }}>
               {/* Grid Columns (Background) */}
               {headerData.days.map((d, i) => (
                 <div
@@ -317,19 +359,28 @@ export function GanttChart({
               )}
 
               {/* Rows */}
-              {rows.map((row) => {
+              {positionedRows.map((row) => {
                 const plannedLeft = row.plannedStart ? ((row.plannedStart - minStart) / DAY_MS) * DAY_WIDTH : 0;
                 const plannedWidth = (row.plannedStart && row.plannedEnd)
                   ? Math.max(((row.plannedEnd - row.plannedStart) / DAY_MS) * DAY_WIDTH, DAY_WIDTH / 2)
                   : 0;
 
-                const actualLeft = row.actualStart ? ((row.actualStart - minStart) / DAY_MS) * DAY_WIDTH : 0;
-                const actualWidth = (row.actualStart && row.actualEnd)
-                  ? Math.max(((row.actualEnd - row.actualStart) / DAY_MS) * DAY_WIDTH, DAY_WIDTH / 2)
+                const actualStartValue = row.actualStart ?? row.actualEnd;
+                const hasActual = Boolean(actualStartValue);
+                const actualEndValue = row.actualEnd
+                  ? Math.max(row.actualEnd, actualStartValue ?? row.actualEnd)
+                  : actualStartValue
+                    ? Math.max(today, actualStartValue)
+                    : null;
+                const actualLeft = hasActual && actualStartValue
+                  ? ((actualStartValue - minStart) / DAY_MS) * DAY_WIDTH
+                  : 0;
+                const actualWidth = hasActual && actualEndValue && actualStartValue
+                  ? Math.max(((actualEndValue - actualStartValue) / DAY_MS) * DAY_WIDTH, DAY_WIDTH / 2)
                   : 0;
 
                 return (
-                  <div key={row.id} className="gantt-body-row">
+                  <div key={row.id} className="gantt-body-row" style={{ top: row.top, height: row.height }}>
                     {/* Planned Bar */}
                     {row.plannedStart && row.plannedEnd && (
                       <div
@@ -339,11 +390,13 @@ export function GanttChart({
                       />
                     )}
                     {/* Actual Bar */}
-                    {row.actualStart && row.actualEnd && (
+                    {hasActual && (
                       <div
                         className={`gantt-bar-actual marker-${row.status.toLowerCase()}`}
                         style={{ left: actualLeft, width: actualWidth }}
-                        title={`実績: ${new Date(row.actualStart).toLocaleDateString()} - ${new Date(row.actualEnd).toLocaleDateString()}`}
+                        title={`実績: ${new Date(actualStartValue!).toLocaleDateString()} - ${
+                          row.actualEnd ? new Date(row.actualEnd).toLocaleDateString() : '進行中'
+                        }`}
                       />
                     )}
                   </div>
@@ -352,14 +405,16 @@ export function GanttChart({
 
               {/* Todo Markers */}
               {todoMarkers.map((marker) => {
-                const rowIndex = rows.findIndex(r => r.id === marker.taskId || r.id === `todo-${marker.id}`); // Note: markers are usually on task row
-                // Find the row index for the task this todo belongs to
-                const taskRowIndex = rows.findIndex(r => r.id === marker.taskId);
-                if (taskRowIndex === -1) return null;
+                const todoRect = itemRects[`todo-${marker.id}`];
+                const taskRow = rowMap.get(marker.taskId);
+                const top = todoRect
+                  ? todoRect.top + ganttOffset + todoRect.height / 2
+                  : taskRow
+                    ? taskRow.top + taskRow.height / 2
+                    : null;
+                if (top == null) return null;
 
                 const left = ((marker.due - minStart) / DAY_MS) * DAY_WIDTH;
-                const top = taskRowIndex * 48 + 24; // Center of the row (48px height)
-
                 return (
                   <div
                     key={marker.id}

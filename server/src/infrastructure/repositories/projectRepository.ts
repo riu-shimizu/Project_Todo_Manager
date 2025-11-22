@@ -1,11 +1,25 @@
 import { nanoid } from 'nanoid';
 import { Project } from '../../domain/entities';
+import { deriveStatusFromActual } from '../../domain/status';
 import db from '../db';
 
 interface CreateProjectInput {
   name: string;
   description?: string;
   ownerId: string;
+}
+
+function countCompleted(items: { actualStart?: string | null; actualEnd?: string | null }[]) {
+  return items.reduce(
+    (acc, item) => {
+      if (deriveStatusFromActual(item.actualStart, item.actualEnd) === 'DONE') {
+        acc.done += 1;
+      }
+      acc.total += 1;
+      return acc;
+    },
+    { done: 0, total: 0 },
+  );
 }
 
 export const projectRepository = {
@@ -87,48 +101,34 @@ export const projectRepository = {
   },
 
   getPlanningStats(projectId: string) {
-    const phaseRes = db
-      .prepare(
-        `SELECT
-           SUM(CASE WHEN status = 'DONE' THEN 1 ELSE 0 END) AS done,
-           COUNT(id) AS total
-         FROM phases
-         WHERE projectId = ?`,
-      )
-      .get(projectId) as { done: number | null; total: number | null };
+    const phases = db
+      .prepare('SELECT actualStart, actualEnd FROM phases WHERE projectId = ?')
+      .all(projectId) as { actualStart?: string | null; actualEnd?: string | null }[];
 
-    const workRes = db
-      .prepare(
-        `SELECT
-           SUM(CASE WHEN status = 'DONE' THEN 1 ELSE 0 END) AS done,
-           COUNT(id) AS total
-         FROM works
-         WHERE projectId = ?`,
-      )
-      .get(projectId) as { done: number | null; total: number | null };
+    const works = db
+      .prepare('SELECT actualStart, actualEnd FROM works WHERE projectId = ?')
+      .all(projectId) as { actualStart?: string | null; actualEnd?: string | null }[];
 
-    const taskRes = db
-      .prepare(
-        `SELECT
-           SUM(CASE WHEN status = 'DONE' THEN 1 ELSE 0 END) AS done,
-           COUNT(id) AS total
-         FROM tasks
-         WHERE projectId = ?`,
-      )
-      .get(projectId) as { done: number | null; total: number | null };
+    const tasks = db
+      .prepare('SELECT actualStart, actualEnd FROM tasks WHERE projectId = ?')
+      .all(projectId) as { actualStart?: string | null; actualEnd?: string | null }[];
+
+    const phaseCounts = countCompleted(phases);
+    const workCounts = countCompleted(works);
+    const taskCounts = countCompleted(tasks);
 
     return {
       phases: {
-        done: phaseRes.done ?? 0,
-        total: phaseRes.total ?? 0,
+        done: phaseCounts.done,
+        total: phaseCounts.total,
       },
       works: {
-        done: workRes.done ?? 0,
-        total: workRes.total ?? 0,
+        done: workCounts.done,
+        total: workCounts.total,
       },
       tasks: {
-        done: taskRes.done ?? 0,
-        total: taskRes.total ?? 0,
+        done: taskCounts.done,
+        total: taskCounts.total,
       },
     };
   },

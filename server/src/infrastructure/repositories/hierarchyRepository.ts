@@ -1,5 +1,6 @@
 import { nanoid } from 'nanoid';
 import { Phase, Work, Task, Todo, TodoStatus } from '../../domain/entities';
+import { deriveStatusFromActual } from '../../domain/status';
 import db from '../db';
 
 type TodoRow = Omit<Todo, 'todayFlag'> & { todayFlag: number };
@@ -9,6 +10,23 @@ function getNextOrder(table: string, column: string, value: string) {
     .prepare(`SELECT COALESCE(MAX(orderIndex), -1) AS idx FROM ${table} WHERE ${column} = ?`)
     .get(value) as { idx: number };
   return row.idx + 1;
+}
+
+function normalizeActualValue(value?: string | null) {
+  return value ?? undefined;
+}
+
+function withDerivedStatus<T extends { actualStart?: string | null; actualEnd?: string | null; status: TodoStatus }>(
+  item: T,
+): T {
+  const actualStart = normalizeActualValue(item.actualStart);
+  const actualEnd = normalizeActualValue(item.actualEnd);
+  return {
+    ...item,
+    actualStart,
+    actualEnd,
+    status: deriveStatusFromActual(actualStart, actualEnd),
+  };
 }
 
 export const hierarchyRepository = {
@@ -25,21 +43,56 @@ export const hierarchyRepository = {
     const todos = (db
       .prepare('SELECT * FROM todos WHERE projectId = ? ORDER BY orderIndex ASC')
       .all(projectId) as TodoRow[]).map((row) => ({ ...row, todayFlag: Boolean(row.todayFlag) }));
-    return { phases, works, tasks, todos };
+    return {
+      phases: phases.map(withDerivedStatus),
+      works: works.map(withDerivedStatus),
+      tasks: tasks.map(withDerivedStatus),
+      todos,
+    };
   },
 
   listPlanningStatuses(projectId: string) {
     const phases = db
-      .prepare('SELECT id, status FROM phases WHERE projectId = ? ORDER BY orderIndex ASC')
-      .all(projectId) as { id: string; status: TodoStatus }[];
+      .prepare('SELECT id, actualStart, actualEnd FROM phases WHERE projectId = ? ORDER BY orderIndex ASC')
+      .all(projectId) as { id: string; actualStart?: string | null; actualEnd?: string | null }[];
     const works = db
-      .prepare('SELECT id, phaseId, status FROM works WHERE projectId = ? ORDER BY orderIndex ASC')
-      .all(projectId) as { id: string; phaseId: string; status: TodoStatus }[];
+      .prepare('SELECT id, phaseId, actualStart, actualEnd FROM works WHERE projectId = ? ORDER BY orderIndex ASC')
+      .all(projectId) as { id: string; phaseId: string; actualStart?: string | null; actualEnd?: string | null }[];
     const tasks = db
-      .prepare('SELECT id, workId, status FROM tasks WHERE projectId = ? ORDER BY orderIndex ASC')
-      .all(projectId) as { id: string; workId: string; status: TodoStatus }[];
+      .prepare('SELECT id, workId, actualStart, actualEnd FROM tasks WHERE projectId = ? ORDER BY orderIndex ASC')
+      .all(projectId) as { id: string; workId: string; actualStart?: string | null; actualEnd?: string | null }[];
 
-    return { phases, works, tasks };
+    return {
+      phases: phases.map((phase) => ({
+        id: phase.id,
+        status: deriveStatusFromActual(normalizeActualValue(phase.actualStart), normalizeActualValue(phase.actualEnd)),
+      })),
+      works: works.map((work) => ({
+        id: work.id,
+        phaseId: work.phaseId,
+        status: deriveStatusFromActual(normalizeActualValue(work.actualStart), normalizeActualValue(work.actualEnd)),
+      })),
+      tasks: tasks.map((task) => ({
+        id: task.id,
+        workId: task.workId,
+        status: deriveStatusFromActual(normalizeActualValue(task.actualStart), normalizeActualValue(task.actualEnd)),
+      })),
+    };
+  },
+
+  findPhase(id: string) {
+    const row = db.prepare('SELECT * FROM phases WHERE id = ?').get(id) as Phase | undefined;
+    return row ? withDerivedStatus(row) : undefined;
+  },
+
+  findWork(id: string) {
+    const row = db.prepare('SELECT * FROM works WHERE id = ?').get(id) as Work | undefined;
+    return row ? withDerivedStatus(row) : undefined;
+  },
+
+  findTask(id: string) {
+    const row = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as Task | undefined;
+    return row ? withDerivedStatus(row) : undefined;
   },
 
   createPhase(input: Omit<Phase, 'id' | 'createdAt' | 'orderIndex'>): Phase {

@@ -83,7 +83,6 @@ function PhaseCard({
     <section className="phase-card">
       <div className="phase-header" data-plan-item-id={phase.id}>
         <InlineInput value={phase.title} onSave={(title) => handlers.onUpdatePhase(phase.id, { title })} />
-        <StatusSelect value={phase.status} onChange={(status) => handlers.onUpdatePhase(phase.id, { status })} />
         <ProgressBar value={phase.progress} />
         <button className="icon-button" onClick={handleDelete} aria-label="大項目削除">
           ✕
@@ -173,7 +172,6 @@ function WorkRow({
     <div className="work-row">
       <div className="work-main" data-plan-item-id={work.id}>
         <InlineInput value={work.title} onSave={(title) => handlers.onUpdateWork(work.id, { title })} />
-        <StatusSelect value={work.status} onChange={(status) => handlers.onUpdateWork(work.id, { status })} />
         <ProgressBar value={work.progress} compact />
         <button className="icon-button" onClick={handleDelete} aria-label="中項目削除">
           ✕
@@ -253,7 +251,6 @@ function TaskRow({
     <div className="task-row">
       <div className="task-main" data-plan-item-id={task.id}>
         <InlineInput value={task.title} onSave={(title) => handlers.onUpdateTask(task.id, { title })} />
-        <StatusSelect value={task.status} onChange={(status) => handlers.onUpdateTask(task.id, { status })} />
         <ProgressBar value={task.progress} compact />
         <button
           className="icon-button"

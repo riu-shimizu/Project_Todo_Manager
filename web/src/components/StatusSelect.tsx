@@ -6,7 +6,7 @@ interface StatusSelectProps {
   onChange: (status: TodoStatus) => Promise<void> | void;
 }
 
-const statusLabels: Record<TodoStatus, string> = {
+export const statusLabels: Record<TodoStatus, string> = {
   NOT_STARTED: '未着手',
   IN_PROGRESS: '進行中',
   DONE: '完了',
@@ -32,4 +32,8 @@ export function StatusSelect({ value, onChange }: StatusSelectProps) {
       ))}
     </select>
   );
+}
+
+export function StatusBadge({ value }: { value: TodoStatus }) {
+  return <span className={`status status-${value.toLowerCase()}`}>{statusLabels[value]}</span>;
 }

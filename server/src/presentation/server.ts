@@ -30,7 +30,6 @@ const planningSchema = z.object({
   actualStart: z.string().optional(),
   actualEnd: z.string().optional(),
   memo: z.string().optional(),
-  status: todoStatusEnum.optional(),
 });
 
 const workSchema = planningSchema.extend({ phaseId: z.string().min(1) });

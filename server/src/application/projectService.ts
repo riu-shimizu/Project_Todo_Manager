@@ -5,6 +5,7 @@ import { hierarchyRepository } from '../infrastructure/repositories/hierarchyRep
 import { userRepository } from '../infrastructure/repositories/userRepository';
 import { calculateProgressFromStatuses, combineProgress, progressFromStatus } from '../domain/progress';
 import { NotFoundError } from './errors';
+import { deriveStatusFromActual } from '../domain/status';
 
 interface CreateProjectPayload {
   name: string;
@@ -19,7 +20,6 @@ interface BasePlanningPayload {
   actualStart?: string;
   actualEnd?: string;
   memo?: string;
-  status?: TodoStatus;
 }
 
 interface WorkPayload extends BasePlanningPayload {
@@ -63,6 +63,29 @@ function deriveProgressFromStatuses(childStatuses: TodoStatus[], ownStatus: Todo
   return calculateProgressFromStatuses(childStatuses);
 }
 
+function normalizeActualValue(value?: string | null) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  const trimmed = value.trim();
+  return trimmed === '' ? null : trimmed;
+}
+
+function deriveStatusFromPatch<T extends { actualStart?: string | null; actualEnd?: string | null }>(
+  current: T,
+  patch: Partial<T>,
+) {
+  const nextActualStart = normalizeActualValue(
+    patch.actualStart !== undefined ? patch.actualStart : current.actualStart,
+  );
+  const nextActualEnd = normalizeActualValue(patch.actualEnd !== undefined ? patch.actualEnd : current.actualEnd);
+
+  return {
+    nextActualStart,
+    nextActualEnd,
+    status: deriveStatusFromActual(nextActualStart, nextActualEnd),
+  };
+}
+
 function calculateProjectProgress(projectId: string): number {
   const { phases, works } = hierarchyRepository.listPlanningStatuses(projectId);
 
@@ -87,7 +110,7 @@ export const projectService = {
     const projects = projectRepository.list();
     return projects.map((project) => {
       const stats = projectRepository.getTodoStats(project.id);
-       const planningStats = projectRepository.getPlanningStats(project.id);
+      const planningStats = projectRepository.getPlanningStats(project.id);
       const progress = calculateProjectProgress(project.id);
       return {
         ...project,
@@ -135,7 +158,6 @@ export const projectService = {
   getHierarchy(projectId: string) {
     const project = ensureProject(projectId);
     const { phases, works, tasks, todos } = hierarchyRepository.listHierarchy(projectId);
-    console.log(phases);
     const todosByTask = new Map<string, TaskNode['todos']>();
     todos.forEach((todo) => {
       if (!todosByTask.has(todo.taskId)) {
@@ -186,25 +208,37 @@ export const projectService = {
 
   createPhase(payload: BasePlanningPayload) {
     ensureProject(payload.projectId);
+    const actualStart = normalizeActualValue(payload.actualStart);
+    const actualEnd = normalizeActualValue(payload.actualEnd);
     return hierarchyRepository.createPhase({
       ...payload,
-      status: payload.status ?? 'NOT_STARTED',
+      actualStart,
+      actualEnd,
+      status: deriveStatusFromActual(actualStart, actualEnd),
     });
   },
 
   createWork(payload: WorkPayload) {
     ensureProject(payload.projectId);
+    const actualStart = normalizeActualValue(payload.actualStart);
+    const actualEnd = normalizeActualValue(payload.actualEnd);
     return hierarchyRepository.createWork({
       ...payload,
-      status: payload.status ?? 'NOT_STARTED',
+      actualStart,
+      actualEnd,
+      status: deriveStatusFromActual(actualStart, actualEnd),
     });
   },
 
   createTask(payload: TaskPayload) {
     ensureProject(payload.projectId);
+    const actualStart = normalizeActualValue(payload.actualStart);
+    const actualEnd = normalizeActualValue(payload.actualEnd);
     return hierarchyRepository.createTask({
       ...payload,
-      status: payload.status ?? 'NOT_STARTED',
+      actualStart,
+      actualEnd,
+      status: deriveStatusFromActual(actualStart, actualEnd),
     });
   },
 
@@ -217,15 +251,45 @@ export const projectService = {
   },
 
   updatePhase(id: string, patch: BasePlanningUpdate) {
-    hierarchyRepository.updatePhase(id, patch);
+    const current = hierarchyRepository.findPhase(id);
+    if (!current) {
+      throw new NotFoundError('Phase not found');
+    }
+    const normalizedPatch: BasePlanningUpdate = {
+      ...patch,
+      actualStart: normalizeActualValue(patch.actualStart),
+      actualEnd: normalizeActualValue(patch.actualEnd),
+    };
+    const { status } = deriveStatusFromPatch(current, normalizedPatch);
+    hierarchyRepository.updatePhase(id, { ...normalizedPatch, status });
   },
 
   updateWork(id: string, patch: WorkUpdate) {
-    hierarchyRepository.updateWork(id, patch);
+    const current = hierarchyRepository.findWork(id);
+    if (!current) {
+      throw new NotFoundError('Work not found');
+    }
+    const normalizedPatch: WorkUpdate = {
+      ...patch,
+      actualStart: normalizeActualValue(patch.actualStart),
+      actualEnd: normalizeActualValue(patch.actualEnd),
+    };
+    const { status } = deriveStatusFromPatch(current, normalizedPatch);
+    hierarchyRepository.updateWork(id, { ...normalizedPatch, status });
   },
 
   updateTask(id: string, patch: TaskUpdate) {
-    hierarchyRepository.updateTask(id, patch);
+    const current = hierarchyRepository.findTask(id);
+    if (!current) {
+      throw new NotFoundError('Task not found');
+    }
+    const normalizedPatch: TaskUpdate = {
+      ...patch,
+      actualStart: normalizeActualValue(patch.actualStart),
+      actualEnd: normalizeActualValue(patch.actualEnd),
+    };
+    const { status } = deriveStatusFromPatch(current, normalizedPatch);
+    hierarchyRepository.updateTask(id, { ...normalizedPatch, status });
   },
 
   updateTodo(id: string, patch: TodoUpdate) {

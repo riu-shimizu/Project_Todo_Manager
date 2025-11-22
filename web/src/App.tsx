@@ -1,9 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from './api';
 import { HierarchyView } from './components/HierarchyView';
 import { GanttChart } from './components/GanttChart';
 import { ProjectSidebar } from './components/ProjectSidebar';
 import { TodayPanel } from './components/TodayPanel';
+import { deriveStatusFromActual } from './utils/status';
 import type { ProjectHierarchyResponse, ProjectSummary, Todo, TodoStatus } from './types';
 import './App.css';
 
@@ -12,18 +13,12 @@ function App() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'project' | 'today'>('project');
   const [hierarchy, setHierarchy] = useState<ProjectHierarchyResponse | null>(null);
-  const [todayTodos, setTodayTodos] = useState<Todo[]>([]);
   const [allTodayTodos, setAllTodayTodos] = useState<Todo[]>([]);
   const [loadingHierarchy, setLoadingHierarchy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showWorksByPhase, setShowWorksByPhase] = useState<Record<string, boolean>>({});
   const [showTasksByWork, setShowTasksByWork] = useState<Record<string, boolean>>({});
   const [showTodosByTask, setShowTodosByTask] = useState<Record<string, boolean>>({});
-  const [collapseHierarchy, setCollapseHierarchy] = useState(false);
-  const [itemRects, setItemRects] = useState<Record<string, { top: number; height: number }>>({});
-  const [ganttOffset, setGanttOffset] = useState(0);
-  const hierarchyRef = useRef<HTMLDivElement | null>(null);
-  const ganttRowsRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     loadProjects();
@@ -32,7 +27,6 @@ function App() {
   useEffect(() => {
     if (selectedProjectId) {
       refreshHierarchy(selectedProjectId);
-      refreshTodayTodos(selectedProjectId);
     }
   }, [selectedProjectId]);
 
@@ -70,17 +64,6 @@ function App() {
     }
   }
 
-  async function refreshTodayTodos(projectId: string) {
-    setError(null);
-    try {
-      const data = await api.fetchTodayTodos(projectId);
-      setTodayTodos(data);
-    } catch (err) {
-      console.error(err);
-      setError('今日の Todo 取得に失敗しました');
-    }
-  }
-
   async function refreshAllTodayTodos() {
     if (projects.length === 0) return;
     setError(null);
@@ -99,9 +82,12 @@ function App() {
     setError(null);
     try {
       await action();
-      await Promise.all([refreshHierarchy(selectedProjectId), refreshTodayTodos(selectedProjectId)]);
+      await refreshHierarchy(selectedProjectId);
       if (refreshProjectsAfter) {
         await loadProjects();
+      }
+      if (viewMode === 'today') {
+        await refreshAllTodayTodos();
       }
     } catch (err) {
       console.error(err);
@@ -131,7 +117,6 @@ function App() {
       if (selectedProjectId === projectId) {
         setSelectedProjectId(null);
         setHierarchy(null);
-        setTodayTodos([]);
       }
       await loadProjects();
     } catch (err) {
@@ -182,6 +167,10 @@ function App() {
     );
   }
 
+  function planningStatus(item: { actualStart?: string | null; actualEnd?: string | null; status: TodoStatus }) {
+    return deriveStatusFromActual(item.actualStart, item.actualEnd);
+  }
+
   function calcStatusProgress(statuses: TodoStatus[]): number {
     if (statuses.length === 0) return 0;
     const total = statuses.reduce((acc, status) => {
@@ -220,38 +209,6 @@ function App() {
     setShowTodosByTask((prev) => ({ ...prev, [id]: !(prev[id] ?? true) }));
   }
 
-  useLayoutEffect(() => {
-    const root = hierarchyRef.current;
-    const gantt = ganttRowsRef.current;
-    if (!root || !gantt) return;
-
-    function measure() {
-      if (!root || !gantt) return;
-      const baseTop = root.getBoundingClientRect().top;
-      const ganttTop = gantt.getBoundingClientRect().top;
-      const next: Record<string, { top: number; height: number }> = {};
-      const nodes = root.querySelectorAll<HTMLElement>('[data-plan-item-id]');
-      nodes.forEach((node) => {
-        const id = node.dataset.planItemId;
-        if (!id) return;
-        const rect = node.getBoundingClientRect();
-        next[id] = {
-          top: rect.top - baseTop,
-          height: rect.height,
-        };
-      });
-      setItemRects(next);
-      setGanttOffset(baseTop - ganttTop);
-    }
-
-    const id = requestAnimationFrame(measure);
-    window.addEventListener('resize', measure);
-    return () => {
-      cancelAnimationFrame(id);
-      window.removeEventListener('resize', measure);
-    };
-  }, [hierarchy, showWorksByPhase, showTasksByWork, showTodosByTask, collapseHierarchy]);
-
   return (
     <div className="app-shell">
       <ProjectSidebar
@@ -283,7 +240,7 @@ function App() {
           <>
             {(() => {
               const phases = hierarchy.phases || [];
-              const phaseStatuses = phases.map((p) => p.status);
+              const phaseStatuses = phases.map((p) => planningStatus(p));
               const phaseProgress = calcStatusProgress(phaseStatuses);
               const phaseCounts = countStatuses(phaseStatuses);
               const workStatuses: TodoStatus[] = [];
@@ -292,9 +249,9 @@ function App() {
 
               phases.forEach((phase) => {
                 phase.works.forEach((work) => {
-                  workStatuses.push(work.status);
+                  workStatuses.push(planningStatus(work));
                   work.tasks.forEach((task) => {
-                    taskStatuses.push(task.status);
+                    taskStatuses.push(planningStatus(task));
                     task.todos.forEach((todo) => {
                       todoStatuses.push(todo.status);
                     });
@@ -364,72 +321,54 @@ function App() {
                 </header>
               );
             })()}
-            <div className="project-layout-toolbar">
-              <button
-                className="ghost"
-                onClick={() => setCollapseHierarchy((prev) => !prev)}
-                aria-pressed={collapseHierarchy}
-              >
-                {collapseHierarchy ? '左の項目を表示' : '左の項目を折りたたむ'}
-              </button>
-            </div>
-            <div className={`project-layout ${collapseHierarchy ? 'collapsed' : ''}`}>
-              {!collapseHierarchy && (
-                <div className="project-main-column" ref={hierarchyRef}>
-                  {loadingHierarchy && <p>読込中...</p>}
-                  <div className="project-board">
-                    <HierarchyView
-                      phases={hierarchy.phases || []}
-                      showWorksByPhase={showWorksByPhase}
-                      showTasksByWork={showTasksByWork}
-                      showTodosByTask={showTodosByTask}
-                      onTogglePhaseWorks={togglePhaseWorks}
-                      onToggleWorkTasks={toggleWorkTasks}
-                      onToggleTaskTodos={toggleTaskTodos}
-                      onUpdatePhase={(id, patch) => mutate(() => api.patchEntity('phases', id, patch), true)}
-                      onUpdateWork={(id, patch) => mutate(() => api.patchEntity('works', id, patch), true)}
-                      onUpdateTask={(id, patch) => mutate(() => api.patchEntity('tasks', id, patch), true)}
-                      onUpdateTodo={(id, patch) => mutate(() => api.patchEntity('todos', id, patch), true)}
-                      onAddPhase={(payload) => mutate(() => api.createPhase(currentProject.id, payload), true)}
-                      onAddWork={(phaseId, payload) =>
-                        mutate(() => api.createWork(currentProject.id, { ...payload, phaseId }), true)
-                      }
-                      onAddTask={(workId, payload) =>
-                        mutate(() => api.createTask(currentProject.id, { ...payload, workId }), true)
-                      }
-                      onAddTodo={(taskId, payload) =>
-                        mutate(() =>
-                          api.createTodo(currentProject.id, {
-                            ...payload,
-                            taskId,
-                            status: 'NOT_STARTED',
-                            assigneeId: currentProject.ownerId,
-                          }),
-                          true,
-                        )
-                      }
-                      onDeletePhase={(id) => mutate(() => api.deletePhase(id), true)}
-                      onDeleteWork={(id) => mutate(() => api.deleteWork(id), true)}
-                      onDeleteTask={(id) => mutate(() => api.deleteTask(id), true)}
-                      onDeleteTodo={(id) => mutate(() => api.deleteTodo(id), true)}
-                    />
-                  </div>
-                  <TodayPanel
-                    todos={todayTodos}
-                    onUpdate={(id, patch) => mutate(() => api.patchEntity('todos', id, patch), true)}
-                  />
-                </div>
-              )}
-              <div className="project-gantt-column">
+            <div className="project-layout vertical">
+              <div className="project-gantt-block">
                 <GanttChart
                   phases={hierarchy.phases || []}
                   showWorksByPhase={showWorksByPhase}
                   showTasksByWork={showTasksByWork}
                   showTodosByTask={showTodosByTask}
-                  itemRects={itemRects}
-                  ganttOffset={ganttOffset}
-                  rowsRef={ganttRowsRef}
                 />
+              </div>
+              <div className="project-main-column">
+                {loadingHierarchy && <p>読込中...</p>}
+                <div className="project-board">
+                  <HierarchyView
+                    phases={hierarchy.phases || []}
+                    showWorksByPhase={showWorksByPhase}
+                    showTasksByWork={showTasksByWork}
+                    showTodosByTask={showTodosByTask}
+                    onTogglePhaseWorks={togglePhaseWorks}
+                    onToggleWorkTasks={toggleWorkTasks}
+                    onToggleTaskTodos={toggleTaskTodos}
+                    onUpdatePhase={(id, patch) => mutate(() => api.patchEntity('phases', id, patch), true)}
+                    onUpdateWork={(id, patch) => mutate(() => api.patchEntity('works', id, patch), true)}
+                    onUpdateTask={(id, patch) => mutate(() => api.patchEntity('tasks', id, patch), true)}
+                    onUpdateTodo={(id, patch) => mutate(() => api.patchEntity('todos', id, patch), true)}
+                    onAddPhase={(payload) => mutate(() => api.createPhase(currentProject.id, payload), true)}
+                    onAddWork={(phaseId, payload) =>
+                      mutate(() => api.createWork(currentProject.id, { ...payload, phaseId }), true)
+                    }
+                    onAddTask={(workId, payload) =>
+                      mutate(() => api.createTask(currentProject.id, { ...payload, workId }), true)
+                    }
+                    onAddTodo={(taskId, payload) =>
+                      mutate(() =>
+                        api.createTodo(currentProject.id, {
+                          ...payload,
+                          taskId,
+                          status: 'NOT_STARTED',
+                          assigneeId: currentProject.ownerId,
+                        }),
+                        true,
+                      )
+                    }
+                    onDeletePhase={(id) => mutate(() => api.deletePhase(id), true)}
+                    onDeleteWork={(id) => mutate(() => api.deleteWork(id), true)}
+                    onDeleteTask={(id) => mutate(() => api.deleteTask(id), true)}
+                    onDeleteTodo={(id) => mutate(() => api.deleteTodo(id), true)}
+                  />
+                </div>
               </div>
             </div>
           </>
