@@ -90,10 +90,18 @@ function PhaseCard({
         </button>
       </div>
       <div className="dates">
-        <span>予定</span>
-        <InlineInput type="date" value={phase.plannedStart} onSave={(plannedStart) => handlers.onUpdatePhase(phase.id, { plannedStart })} />
-        <span>〜</span>
-        <InlineInput type="date" value={phase.plannedEnd} onSave={(plannedEnd) => handlers.onUpdatePhase(phase.id, { plannedEnd })} />
+        <div className="date-row">
+          <span className="date-label">予定</span>
+          <InlineInput type="date" value={phase.plannedStart} onSave={(plannedStart) => handlers.onUpdatePhase(phase.id, { plannedStart })} />
+          <span>〜</span>
+          <InlineInput type="date" value={phase.plannedEnd} onSave={(plannedEnd) => handlers.onUpdatePhase(phase.id, { plannedEnd })} />
+        </div>
+        <div className="date-row">
+          <span className="date-label">実績</span>
+          <InlineInput type="date" value={phase.actualStart} onSave={(actualStart) => handlers.onUpdatePhase(phase.id, { actualStart })} />
+          <span>〜</span>
+          <InlineInput type="date" value={phase.actualEnd} onSave={(actualEnd) => handlers.onUpdatePhase(phase.id, { actualEnd })} />
+        </div>
       </div>
       <div className="works">
         <div className="works-header">
@@ -172,9 +180,18 @@ function WorkRow({
         </button>
       </div>
       <div className="dates">
-        <InlineInput type="date" value={work.plannedStart} onSave={(plannedStart) => handlers.onUpdateWork(work.id, { plannedStart })} />
-        <span>〜</span>
-        <InlineInput type="date" value={work.plannedEnd} onSave={(plannedEnd) => handlers.onUpdateWork(work.id, { plannedEnd })} />
+        <div className="date-row">
+          <span className="date-label">予定</span>
+          <InlineInput type="date" value={work.plannedStart} onSave={(plannedStart) => handlers.onUpdateWork(work.id, { plannedStart })} />
+          <span>〜</span>
+          <InlineInput type="date" value={work.plannedEnd} onSave={(plannedEnd) => handlers.onUpdateWork(work.id, { plannedEnd })} />
+        </div>
+        <div className="date-row">
+          <span className="date-label">実績</span>
+          <InlineInput type="date" value={work.actualStart} onSave={(actualStart) => handlers.onUpdateWork(work.id, { actualStart })} />
+          <span>〜</span>
+          <InlineInput type="date" value={work.actualEnd} onSave={(actualEnd) => handlers.onUpdateWork(work.id, { actualEnd })} />
+        </div>
       </div>
       <div className="tasks">
         <div className="tasks-header">
@@ -255,17 +272,34 @@ function TaskRow({
         </button>
       </div>
       <div className="dates">
-        <InlineInput
-          type="date"
-          value={task.plannedStart}
-          onSave={(plannedStart) => handlers.onUpdateTask(task.id, { plannedStart })}
-        />
-        <span>〜</span>
-        <InlineInput
-          type="date"
-          value={task.plannedEnd}
-          onSave={(plannedEnd) => handlers.onUpdateTask(task.id, { plannedEnd })}
-        />
+        <div className="date-row">
+          <span className="date-label">予定</span>
+          <InlineInput
+            type="date"
+            value={task.plannedStart}
+            onSave={(plannedStart) => handlers.onUpdateTask(task.id, { plannedStart })}
+          />
+          <span>〜</span>
+          <InlineInput
+            type="date"
+            value={task.plannedEnd}
+            onSave={(plannedEnd) => handlers.onUpdateTask(task.id, { plannedEnd })}
+          />
+        </div>
+        <div className="date-row">
+          <span className="date-label">実績</span>
+          <InlineInput
+            type="date"
+            value={task.actualStart}
+            onSave={(actualStart) => handlers.onUpdateTask(task.id, { actualStart })}
+          />
+          <span>〜</span>
+          <InlineInput
+            type="date"
+            value={task.actualEnd}
+            onSave={(actualEnd) => handlers.onUpdateTask(task.id, { actualEnd })}
+          />
+        </div>
       </div>
       <div className="todos">
         <button

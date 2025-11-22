@@ -205,7 +205,8 @@ main {
 .project-menu {
   margin-top: 0.2rem;
   padding: 0.4rem;
-  background: #111827; /* 完全不透明なダーク背景 */
+  background: #111827;
+  /* 完全不透明なダーク背景 */
   color: #e2e8f0;
   border-radius: 0.5rem;
   border: 1px solid #475569;
@@ -217,14 +218,16 @@ main {
   min-width: 140px;
   flex-direction: column;
   gap: 0.2rem;
-  z-index: 1000; /* 下のプロジェクトボタンより前面に出す */
+  z-index: 1000;
+  /* 下のプロジェクトボタンより前面に出す */
 }
 
 .project-menu button {
   width: 100%;
   display: block;
   text-align: left;
-  background: #111827; /* 透過なし */
+  background: #111827;
+  /* 透過なし */
   border: none;
   padding: 0.25rem 0.5rem;
   font-size: 0.85rem;
@@ -266,7 +269,8 @@ main {
   align-items: flex-start;
   gap: 1rem;
   margin-bottom: 0.75rem;
-  min-height: 45px; /* Match Gantt header height roughly */
+  min-height: 45px;
+  /* Match Gantt header height roughly */
 }
 
 .hierarchy-title {
@@ -316,10 +320,23 @@ main {
 
 .dates {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.3rem;
   font-size: 0.85rem;
   color: #475569;
+}
+
+.date-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.date-label {
+  width: 32px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
 }
 
 .works,
@@ -492,17 +509,176 @@ main {
 .today-flag {
   display: flex;
   align-items: center;
-  gap: 0.2rem;
-  font-size: 0.8rem;
+  margin-bottom: 1rem;
+  padding: 0 0.5rem;
+}
+
+.gantt-container {
+  display: flex;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  position: relative;
+}
+
+.gantt-sidebar {
+  flex: 0 0 240px;
+  border-right: 1px solid #e2e8f0;
+  background: #fff;
+  z-index: 10;
+}
+
+.gantt-sidebar-header {
+  height: 60px;
+  /* Match timeline header height */
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  padding-left: 1rem;
+  font-weight: 600;
+  color: #475569;
+  background: #f8fafc;
+}
+
+.gantt-sidebar-row {
+  height: 48px;
+  /* Fixed row height */
+  display: flex;
+  align-items: center;
+  padding-left: 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.9rem;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gantt-sidebar-row.level-1 {
+  padding-left: 2rem;
   color: #475569;
 }
 
-.gantt-card {
+.gantt-sidebar-row.level-2 {
+  padding-left: 3rem;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.gantt-timeline-scroll {
+  flex: 1;
+  overflow-x: auto;
+  position: relative;
   background: #fff;
-  border-radius: 1rem;
-  padding: 1rem 1.2rem;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-  border: 1px solid #e2e8f0;
+}
+
+.gantt-timeline-header {
+  height: 60px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  white-space: nowrap;
+}
+
+.gantt-header-row-top {
+  height: 30px;
+  display: flex;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.gantt-header-row-bottom {
+  height: 30px;
+  display: flex;
+}
+
+.gantt-header-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid #e2e8f0;
+  font-size: 0.75rem;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.gantt-body {
+  position: relative;
+}
+
+.gantt-body-row {
+  height: 48px;
+  border-bottom: 1px solid #f1f5f9;
+  position: relative;
+}
+
+.gantt-grid-col {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-right: 1px solid #f1f5f9;
+}
+
+.gantt-grid-col.weekend {
+  background: #f8fafc;
+}
+
+.gantt-bar-group {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+}
+
+.gantt-bar-planned {
+  position: absolute;
+  top: 2px;
+  height: 16px;
+  background: #cbd5e1;
+  border-radius: 4px;
+  opacity: 0.7;
+}
+
+.gantt-bar-actual {
+  position: absolute;
+  bottom: 2px;
+  height: 16px;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.gantt-today-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #f97316;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.gantt-marker {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 6;
+}
+
+.gantt-marker.marker-not_started {
+  background: #cbd5f5;
+}
+
+.gantt-marker.marker-in_progress {
+  background: #fb923c;
+}
+
+.gantt-marker.marker-done {
+  background: #22c55e;
 }
 
 .gantt-header {

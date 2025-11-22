@@ -282,14 +282,15 @@ function App() {
         {viewMode === 'project' && currentProject && hierarchy && (
           <>
             {(() => {
-              const phaseStatuses = hierarchy.phases.map((p) => p.status);
+              const phases = hierarchy.phases || [];
+              const phaseStatuses = phases.map((p) => p.status);
               const phaseProgress = calcStatusProgress(phaseStatuses);
               const phaseCounts = countStatuses(phaseStatuses);
               const workStatuses: TodoStatus[] = [];
               const taskStatuses: TodoStatus[] = [];
               const todoStatuses: TodoStatus[] = [];
 
-              hierarchy.phases.forEach((phase) => {
+              phases.forEach((phase) => {
                 phase.works.forEach((work) => {
                   workStatuses.push(work.status);
                   work.tasks.forEach((task) => {
@@ -378,7 +379,7 @@ function App() {
                   {loadingHierarchy && <p>読込中...</p>}
                   <div className="project-board">
                     <HierarchyView
-                      phases={hierarchy.phases}
+                      phases={hierarchy.phases || []}
                       showWorksByPhase={showWorksByPhase}
                       showTasksByWork={showTasksByWork}
                       showTodosByTask={showTodosByTask}
@@ -421,7 +422,7 @@ function App() {
               )}
               <div className="project-gantt-column">
                 <GanttChart
-                  phases={hierarchy.phases}
+                  phases={hierarchy.phases || []}
                   showWorksByPhase={showWorksByPhase}
                   showTasksByWork={showTasksByWork}
                   showTodosByTask={showTodosByTask}

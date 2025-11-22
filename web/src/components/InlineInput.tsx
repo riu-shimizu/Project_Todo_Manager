@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 interface InlineInputProps {
-  value: string;
+  value?: string;
   type?: 'text' | 'date';
   placeholder?: string;
   className?: string;
@@ -9,11 +9,11 @@ interface InlineInputProps {
 }
 
 export function InlineInput({ value, type = 'text', placeholder, className, onSave }: InlineInputProps) {
-  const [draft, setDraft] = useState(value);
+  const [draft, setDraft] = useState(value ?? '');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setDraft(value);
+    setDraft(value ?? '');
   }, [value]);
 
   async function commit() {
@@ -24,7 +24,7 @@ export function InlineInput({ value, type = 'text', placeholder, className, onSa
     } catch (err) {
       console.error(err);
       alert('更新に失敗しました');
-      setDraft(value);
+      setDraft(value ?? '');
     } finally {
       setSaving(false);
     }
@@ -43,7 +43,7 @@ export function InlineInput({ value, type = 'text', placeholder, className, onSa
         if (e.key === 'Enter') {
           (e.target as HTMLInputElement).blur();
         } else if (e.key === 'Escape') {
-          setDraft(value);
+          setDraft(value ?? '');
           (e.target as HTMLInputElement).blur();
         }
       }}
