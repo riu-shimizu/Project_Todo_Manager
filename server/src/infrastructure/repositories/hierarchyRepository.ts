@@ -164,7 +164,7 @@ export const hierarchyRepository = {
     if (filter.status) {
       where.push('status = @status');
     }
-    where.push(`(todayFlag = 1 OR dueDate = date('now'))`);
+    where.push(`dueDate = date('now')`);
     const stmt = db.prepare(`SELECT * FROM todos WHERE ${where.join(' AND ')} ORDER BY dueDate ASC, orderIndex ASC`);
     const rows = stmt.all({
       projectId,

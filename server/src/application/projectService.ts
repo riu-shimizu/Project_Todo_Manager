@@ -46,6 +46,7 @@ type BasePlanningUpdate = Partial<Omit<BasePlanningPayload, 'projectId'>>;
 type WorkUpdate = Partial<Omit<WorkPayload, 'projectId'>>;
 type TaskUpdate = Partial<Omit<TaskPayload, 'projectId'>>;
 type TodoUpdate = Partial<Omit<TodoPayload, 'projectId'>>;
+type ProjectUpdate = Partial<CreateProjectPayload>;
 
 function ensureProject(projectId: string) {
   const project = projectRepository.findById(projectId);
@@ -120,6 +121,15 @@ export const projectService = {
     });
     projectRepository.addMember(project.id, DEMO_USER_ID, 'OWNER');
     return project;
+  },
+
+  updateProject(projectId: string, patch: ProjectUpdate) {
+    ensureProject(projectId);
+    const updated = projectRepository.update(projectId, patch);
+    if (!updated) {
+      throw new NotFoundError('Project not found');
+    }
+    return updated;
   },
 
   getHierarchy(projectId: string) {

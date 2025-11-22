@@ -43,6 +43,26 @@ export const projectRepository = {
     return row as Project | undefined;
   },
 
+  update(id: string, patch: { name?: string; description?: string }): Project | undefined {
+    const current = this.findById(id);
+    if (!current) return undefined;
+
+    const next: Project = {
+      ...current,
+      ...patch,
+    };
+
+    db.prepare(
+      `UPDATE projects SET name = @name, description = @description WHERE id = @id`,
+    ).run({
+      id,
+      name: next.name,
+      description: next.description ?? null,
+    });
+
+    return next;
+  },
+
   addMember(projectId: string, userId: string, role: 'OWNER' | 'MEMBER') {
     const now = new Date().toISOString();
     db.prepare(

@@ -18,6 +18,8 @@ const createProjectSchema = z.object({
   description: z.string().optional(),
 });
 
+const updateProjectSchema = createProjectSchema.partial();
+
 const todoStatusValues = ['NOT_STARTED', 'IN_PROGRESS', 'DONE'] as const;
 const todoStatusEnum = z.enum(todoStatusValues);
 
@@ -76,6 +78,13 @@ app.post('/api/projects', (req, res) => {
   const body = createProjectSchema.parse(req.body);
   const project = projectService.createProject(body);
   res.status(201).json(project);
+});
+
+app.patch('/api/projects/:projectId', (req, res) => {
+  const { projectId } = req.params;
+  const body = updateProjectSchema.parse(req.body ?? {});
+  const project = projectService.updateProject(projectId, body);
+  res.json(project);
 });
 
 app.get('/api/projects/:projectId/hierarchy', (req, res) => {
